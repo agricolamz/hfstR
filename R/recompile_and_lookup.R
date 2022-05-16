@@ -9,16 +9,6 @@
 
 recompile_and_lookup <- function(path){
   path <- normalizePath(path)
-  makefile <- readLines(paste0(path, "/Makefile"))
-  line <- makefile[grep(".DEFAULT_GOAL", makefile)]
-  goal <- unlist(strsplit(line, " "))
-  goal <- goal[length(goal)]
-  tmp <- tempfile(fileext = ".txt")
-  system(paste0("cd ",
-                path,
-                "; make; hfst-fst2strings ",
-                goal,
-                " > ",
-                tmp))
-  readLines(tmp)
+  recompile(path)
+  lookup(path, get_goal(path))
 }
