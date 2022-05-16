@@ -7,7 +7,7 @@
 #' @return a vector of strings with output of `hfst-fst2strings`
 #' @export
 
-test_hfst <- function(path){
+run_tests <- function(path){
   path <- normalizePath(path)
   recompile(path)
   df <- read.csv(list.files(path, pattern = "tests.csv", full.names = TRUE))
