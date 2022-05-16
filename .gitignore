@@ -1,0 +1,10 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+inst/doc
+hfstR.Rproj
+rsconnect
+doc
+Meta
+*.~lock*
