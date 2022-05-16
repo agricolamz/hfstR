@@ -4,44 +4,63 @@
 #'
 #' @author George Moroz <agricolamz@gmail.com>
 #' @param path character with the path to the `Makefile`
-#' @return a vector of strings with output of `hfst-fst2strings`
+#' @return a dataframe with differences between transducer and tests
 #' @export
 
 run_tests <- function(path){
   path <- normalizePath(path)
   recompile(path)
   df <- read.csv(list.files(path, pattern = "tests.csv", full.names = TRUE))
-  results <- unlist(lapply(df$form, function(i){
-    system(paste0("echo '",
-                  i,
-                  "' | hfst-lookup ",
-                  paste0(path, "/", get_goal(path))),
-           intern = TRUE,
-           ignore.stderr = TRUE)
-  }))
-  results <- read.table(text = results[results != ""], sep = "\t")
-  analyser_check <- cbind(data.frame(observed = results$V2), df)
-  analyser_check <- analyser_check[analyser_check$observed !=
-                                     analyser_check$analysis,]
+
+  results <- lapply(df$form, function(i){
+    generated <- system(paste0("echo '",
+                               i,
+                               "' | hfst-lookup ",
+                               paste0(path, "/", get_goal(path))),
+                        intern = TRUE,
+                        ignore.stderr = TRUE)
+    suppressWarnings({cbind(read.table(text = generated, sep = "\t"),
+                            df[df$form == i,])})
+  })
+
+  analyser_check <- Reduce(rbind, results)
+
+  names(analyser_check)[names(analyser_check) == "V2"] <- "observed"
   analyser_check$expected <- analyser_check$analysis
 
-  results <- unlist(lapply(df$analysis, function(i){
-    system(paste0("echo '",
+  analyser_check$diff <- analyser_check$observed == analyser_check$analysis
+
+  analyser_check <- analyser_check[analyser_check$form %in%
+                                     analyser_check$form[!analyser_check$diff],]
+
+  analyser_check <- subset(analyser_check, select = -c(V1, V3, form, analysis))
+
+  results <- lapply(df$analysis, function(i){
+    generated <- system(paste0("echo '",
                   i,
                   "' | hfst-lookup ",
                   paste0(path, "/",
                          gsub("analizer", "generator", get_goal(path)))),
            intern = TRUE,
            ignore.stderr = TRUE)
-  }))
+    suppressWarnings({cbind(read.table(text = generated, sep = "\t"),
+                            df[df$analysis == i,])})
+  })
 
-  results <- read.table(text = results[results != ""], sep = "\t")
-  generator_check <- cbind(data.frame(observed = results$V2), df)
-  generator_check <- generator_check[generator_check$observed !=
-                                 generator_check$form,]
+  generator_check <- Reduce(rbind, results)
+
+  names(generator_check)[names(generator_check) == "V2"] <- "observed"
   generator_check$expected <- generator_check$form
+
+  generator_check$diff <- generator_check$observed == generator_check$form
+
+  generator_check <- generator_check[generator_check$analysis %in%
+                                       generator_check$analysis[!generator_check$diff],]
+
+  generator_check <- subset(generator_check, select = -c(V1, V3, form, analysis))
+
   final_result <- rbind(generator_check, analyser_check)
   rownames(final_result) <- 1:nrow(final_result)
-  cn <- which(!(colnames(final_result) %in% c("observed", "expected", "analysis", "form")))
-  cbind(final_result[,c("observed", "expected")], final_result[,cn])
+  cn <- which(!(colnames(final_result) %in% c("observed", "expected", "diff", "analysis", "form")))
+  cbind(final_result[,c("observed", "expected", "diff")], final_result[,cn])
 }
